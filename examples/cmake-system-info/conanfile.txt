@@ -1,0 +1,9 @@
+[requires]
+zlib/[*]
+
+[generators]
+CMakeDeps
+CMakeToolchain
+
+[layout]
+cmake_layout

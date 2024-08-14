@@ -1,0 +1,20 @@
+[settings]
+arch=armv8
+build_type=Release
+compiler=gcc
+compiler.cppstd=gnu17
+compiler.libcxx=libstdc++11
+compiler.version=10
+os=Linux
+
+[conf]
+tools.build:sysroot=/opt/raspberrypi_rootfs
+tools.build:compiler_executables={"c":"/opt/cross-pi-gcc-10.5.0-64/bin/aarch64-linux-gnu-gcc","cpp":"/opt/cross-pi-gcc-10.5.0-64/bin/aarch64-linux-gnu-g++"}
+tools.system.package_manager:mode=report-installed
+
+[buildenv]
+# Some build scripts will try to locate "prefixed" tools in the PATH
+PATH=+(path)/opt/cross-pi-gcc-10.5.0-64/bin
+
+# For ar, as, ranlib, readelf, strip, etc - ensure they are from the toolchain
+PATH=+(path)/opt/cross-pi-gcc-10.5.0-64/aarch64-linux-gnu/bin
