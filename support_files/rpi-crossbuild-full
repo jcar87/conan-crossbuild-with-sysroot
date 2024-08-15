@@ -1,0 +1,35 @@
+[settings]
+arch=armv8
+build_type=Release
+compiler=gcc
+compiler.cppstd=gnu17
+compiler.libcxx=libstdc++11
+compiler.version=10
+os=Linux
+
+[conf]
+tools.build:sysroot=/opt/raspberrypi_rootfs
+tools.build:compiler_executables={"c":"/opt/cross-pi-gcc-10.5.0-64/bin/aarch64-linux-gnu-gcc","cpp":"/opt/cross-pi-gcc-10.5.0-64/bin/aarch64-linux-gnu-g++"}
+tools.system.package_manager:mode=report-installed
+
+# A custom toolchain file that sets CMAKE_FIND_ROOT_PATH_MODE_PROGRAM to NEVER
+# see https://github.com/conan-io/conan/issues/16795
+tools.cmake.cmaketoolchain:user_toolchain=['/opt/user_toolchain.cmake']
+
+# Define these because when we pass a custom toolchain file, Conan doesnt'
+# see https://github.com/conan-io/conan/issues/16807
+tools.cmake.cmaketoolchain:system_name="Linux"
+tools.cmake.cmaketoolchain:system_processor="aarch64"
+
+# Don't attempt to install any system package locally for this profile
+tools.system.package_manager:mode=report-installed
+
+# Ensure pkg-config no longer looks in the host machine and it looks inside the sysroot instead
+tools.gnu:pkg_config=/opt/pkg-config
+
+[buildenv]
+# Some build scripts will try to locate "prefixed" tools in the PATH
+PATH=+(path)/opt/cross-pi-gcc-10.5.0-64/bin
+
+# For ar, as, ranlib, readelf, strip, etc - ensure they are from the toolchain
+PATH=+(path)/opt/cross-pi-gcc-10.5.0-64/aarch64-linux-gnu/bin

@@ -1,0 +1,11 @@
+[requires]
+fmt/11.0.2
+#let's say we forgot to add the following line
+#simdjson/3.10.0
+
+[generators]
+CMakeDeps
+CMakeToolchain
+
+[layout]
+cmake_layout

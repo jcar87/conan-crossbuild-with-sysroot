@@ -73,7 +73,7 @@ See issue https://github.com/conan-io/conan/issues/16807
 To reproduce inside the container:
 ```
 cd /home/conan/examples/cmake-system-info
-conan install . --profile:host rpi-crossbuild -c tools.cmake.cmaketoolchain:user_toolchain="['/opt/user_toolchain.cmake']" --build=missing
+conan install . --profile:host rpi-crossbuild --build=missing -c tools.cmake.cmaketoolchain:user_toolchain="['/opt/user_toolchain.cmake']"
 cmake --preset=conan-release
 ```
 
@@ -112,7 +112,7 @@ Note that the behaviour is correct when a user toolchain is *not* provided, howe
 
 ```
 rm -rf build
-conan install . --profile:host rpi-crossbuild  --build=missing -c tools.cmake.cmaketoolchain:system_name="Linux" -c tools.cmake.cmaketoolchain:system_processor="aarch64"
+conan install . --profile:host rpi-crossbuild  --build=missing
 cmake --preset=conan-release -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER
 ```
 
@@ -120,7 +120,7 @@ cmake --preset=conan-release -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER
 
 ```
 cd /home/conan/examples/dependency-from-sysroot
-conan install . --profile:host rpi-crossbuild -c tools.cmake.cmaketoolchain:user_toolchain="['/opt/user_toolchain.cmake']" --build=missing -c tools.cmake.cmaketoolchain:system_name="Linux" -c tools.cmake.cmaketoolchain:system_processor="aarch64"
+conan install . --profile:host rpi-crossbuild-full --build=missing
 cmake --preset conan-release --debug-find-pkg=fmt
 cmake --build --preset conan-release
 ```
@@ -138,7 +138,7 @@ We can "force" CMake to find it by defining `fmt_DIR` to the generators folder, 
 
 ```
 rm -rf build
-conan install . --profile:host rpi-crossbuild -c tools.cmake.cmaketoolchain:user_toolchain="['/opt/user_toolchain.cmake']" --build=missing -c tools.cmake.cmaketoolchain:system_name="Linux" -c tools.cmake.cmaketoolchain:system_processor="aarch64"
+conan install . --profile:host rpi-crossbuild-full --build=missing 
 cmake --preset conan-release --fresh -DDEFINE_FMT_DIR=ON
 cmake --build --preset conan-release
 ```
@@ -150,3 +150,43 @@ FMT was found at: /home/conan/examples/dependency-from-sysroot/build/Release/gen
 ```
 
 This method may not work for all dependencies.
+
+# Example 4: CMake finds a dependency from the build machine because it is not listed as a Conan dependency
+
+We have a call to `find_package()` for a dependency that we forgot to list in the Conanfile. So CMake will 
+continue searching in the system, and we have a local build of `simdjson`, but built for the native architecture
+of our build machine.
+
+```
+cd /home/conan/examples/dependency-from-build-machine
+conan install . --profile:host rpi-crossbuild-full --build=missing
+cmake --preset conan-release 
+cmake --build --preset conan-release
+```
+
+What we can see is the following during CMake configuration:
+
+```
+simdjson version found: 3.10.0
+simdjson found at: /usr/local/lib/cmake/simdjson
+```
+
+But it then it fails during the build phase:
+
+```
+[ 50%] Building CXX object CMakeFiles/hello_world.dir/hello_world.cpp.o
+[100%] Linking CXX executable hello_world
+/opt/cross-pi-gcc-10.5.0-64/bin/../lib/gcc/aarch64-linux-gnu/10.5.0/../../../../aarch64-linux-gnu/bin/ld: /usr/local/lib/libsimdjson.a(simdjson.cpp.o): Relocations in generic ELF (EM: 62)
+[...clipped for brevity...]
+/opt/cross-pi-gcc-10.5.0-64/bin/../lib/gcc/aarch64-linux-gnu/10.5.0/../../../../aarch64-linux-gnu/bin/ld: /usr/local/lib/libsimdjson.a(simdjson.cpp.o): Relocations in generic ELF (EM: 62)
+/opt/cross-pi-gcc-10.5.0-64/bin/../lib/gcc/aarch64-linux-gnu/10.5.0/../../../../aarch64-linux-gnu/bin/ld: /usr/local/lib/libsimdjson.a: error adding symbols: file in wrong format
+```
+
+In this case, CMake finds an _incompatible_ version of simdjson, and propagates the following flags:
+*  `-isystem /usr/local/include` to the compiler
+* `/usr/local/lib/libsimdjson.a` to the linker
+
+This exposes the linker to a file of a foreign architecture, since `libsimdjson.a` was linked for `x86_64`
+
+What we want is `find_package(simdjson)` to fail early - and give a clear signal to the developer that a depedendency is missing, rather than have this happen at the linker (with harder to diagnose errors)
+ because we let CMake look in the host system.
